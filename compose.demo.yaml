@@ -1,0 +1,18 @@
+# Explicit local simulator with its own project and database volume
+name: keitaro-desk-demo
+services:
+  demo:
+    image: keitaro-desk:local
+    command: ["uvicorn", "tools.demo_keitaro:app", "--host", "0.0.0.0", "--port", "9001"]
+    healthcheck:
+      disable: true
+  app:
+    environment:
+      KEITARO_BASE_URL: http://demo:9001
+      KEITARO_API_KEY: demo-local-only
+      DEMO_MODE: true
+    depends_on:
+      demo:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully

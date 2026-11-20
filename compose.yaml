@@ -1,0 +1,52 @@
+name: keitaro-desk
+
+x-backend: &backend
+  image: keitaro-desk:local
+  environment: &environment
+    DATABASE_URL: postgresql+psycopg://keitaro:keitaro@db:5432/keitaro
+    KEITARO_BASE_URL: ${KEITARO_BASE_URL:-https://tlgk.host}
+    KEITARO_API_KEY: ${KEITARO_API_KEY:-}
+    KEITARO_TIMEOUT: ${KEITARO_TIMEOUT:-15}
+    DEFAULT_DOMAIN_ID: ${DEFAULT_DOMAIN_ID:-}
+    DEFAULT_GROUP_ID: ${DEFAULT_GROUP_ID:-}
+    DEFAULT_TRAFFIC_SOURCE_ID: ${DEFAULT_TRAFFIC_SOURCE_ID:-}
+    APP_ACCESS_TOKEN: ${APP_ACCESS_TOKEN:-}
+    DEMO_MODE: ${DEMO_MODE:-false}
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: keitaro
+      POSTGRES_PASSWORD: keitaro
+      POSTGRES_DB: keitaro
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keitaro -d keitaro"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+  migrate:
+    <<: *backend
+    command: ["alembic", "upgrade", "head"]
+    healthcheck:
+      disable: true
+    depends_on:
+      db:
+        condition: service_healthy
+  app:
+    <<: *backend
+    build: .
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
